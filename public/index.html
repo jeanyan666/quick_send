@@ -1,0 +1,2246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>快传 · 跨设备文件直传</title>
+<meta name="theme-color" content="#f5f7fc">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%234f6ef7'/%3E%3Cpath d='M20 38h18a6 6 0 0 0 0-12H26' stroke='white' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M30 20l-6 6 6 6' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --ink:#0f172a;
+    --ink-2:#334155;
+    --muted:#64748b;
+    --faint:#94a3b8;
+    --line:#e6ecf5;
+    --line-2:#eef2f9;
+    --brand:#4f6ef7;
+    --brand-dark:#3b56d8;
+    --brand-soft:#eef2ff;
+    --teal:#14b8a6;
+    --ok:#16a34a;
+    --warn:#d97706;
+    --bad:#dc2626;
+    --card:#ffffff;
+    --radius:20px;
+    --shadow:0 1px 2px rgba(15,23,42,.04), 0 12px 32px -12px rgba(15,23,42,.14);
+    --font:-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    --mono:ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:#f5f7fc;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(720px 420px at 12% -6%, rgba(79,110,247,.13), transparent 65%),
+      radial-gradient(620px 420px at 92% 4%, rgba(20,184,166,.11), transparent 62%),
+      radial-gradient(700px 500px at 50% 108%, rgba(79,110,247,.07), transparent 60%);
+  }
+  h1,h2,h3,p,ul{margin:0}
+  button{font-family:inherit;font-size:inherit;cursor:pointer}
+  input{font-family:inherit}
+  .hidden{display:none !important}
+  .muted{color:var(--muted)}
+  .small{font-size:12.5px}
+
+  /* ---------- 布局 ---------- */
+  .wrap{max-width:980px;margin:0 auto;padding:28px 22px 64px}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:34px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{
+    width:42px;height:42px;border-radius:13px;flex:none;
+    background:linear-gradient(140deg,#5b7bff,#3f5be0);
+    box-shadow:0 6px 16px -6px rgba(79,110,247,.75);
+    display:grid;place-items:center;color:#fff;
+  }
+  .logo svg{width:23px;height:23px}
+  .brand h1{font-size:18.5px;font-weight:700;letter-spacing:.2px;line-height:1.2}
+  .brand p{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .pill{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:7px 13px;border-radius:999px;
+    background:rgba(255,255,255,.8);border:1px solid var(--line);
+    font-size:12.5px;color:var(--muted);white-space:nowrap;
+    backdrop-filter:blur(8px);
+  }
+  .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none}
+  .pill.ok .dot{background:var(--ok);box-shadow:0 0 0 3px rgba(22,163,74,.14)}
+  .pill.warn .dot{background:var(--warn);box-shadow:0 0 0 3px rgba(217,119,6,.14)}
+  .pill.bad .dot{background:var(--bad);box-shadow:0 0 0 3px rgba(220,38,38,.14)}
+  .pill.ok{color:#15803d;background:rgba(240,253,244,.9);border-color:#d3f0dd}
+
+  /* ---------- 大厅 ---------- */
+  #viewLobby{display:flex;flex-direction:column;justify-content:center;min-height:calc(100vh - 170px)}
+  .hero{text-align:center;margin-bottom:30px}
+  .hero h2{font-size:clamp(24px,3.4vw,34px);line-height:1.28;letter-spacing:-.4px;font-weight:700}
+  .hero h2 em{font-style:normal;background:linear-gradient(100deg,#4f6ef7,#16b8a6);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{margin-top:10px;color:var(--muted);font-size:14.5px}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+  @media (max-width:760px){.grid2{grid-template-columns:1fr}}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:22px;
+  }
+  .create-card{background:linear-gradient(180deg,#fff, #fbfcff)}
+
+  .card-top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .step{
+    font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;
+    color:var(--brand);background:var(--brand-soft);
+    padding:3px 7px;border-radius:7px;
+  }
+  .card h3{font-size:16.5px;font-weight:650;letter-spacing:-.1px}
+  .card > p.muted{font-size:13.5px;line-height:1.6;margin-bottom:16px}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    border:1px solid var(--line);background:#fff;color:var(--ink-2);
+    padding:11px 18px;border-radius:12px;font-size:14px;font-weight:550;
+    transition:transform .12s ease, box-shadow .18s ease, background .18s ease, border-color .18s;
+  }
+  .btn:hover{border-color:#d5deec;background:#fbfcff}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{
+    background:linear-gradient(180deg,#5d7bff,#4562ea);
+    border-color:#4360e8;color:#fff;
+    box-shadow:0 8px 20px -10px rgba(69,98,234,.9), inset 0 1px 0 rgba(255,255,255,.18);
+  }
+  .btn.primary:hover{background:linear-gradient(180deg,#6683ff,#4b68f0)}
+  .btn.primary:disabled{opacity:.6;cursor:default;box-shadow:none}
+  .btn.block{width:100%}
+  .btn.small{padding:8px 13px;font-size:13px;border-radius:10px}
+  .btn.ghost{background:#fff}
+  .link{border:none;background:none;padding:0;color:var(--brand);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1.5px}
+
+  .tip{font-size:12.3px;color:var(--faint);text-align:center;margin-top:11px;line-height:1.5}
+
+  /* 分享面板：创建房间后把地址和房间码摊开给对方 */
+  .share-panel{
+    display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap;
+    margin-top:16px;padding:18px 20px;
+    background:linear-gradient(135deg,#f8faff,#eef3ff);
+    border-color:#dfe7fb;
+  }
+  .share-main{flex:1;min-width:250px}
+  .share-title{display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:650;color:#27407f}
+  .share-sub{font-size:12.5px;color:#5d6d8f;line-height:1.65;margin-top:7px;max-width:48ch}
+  .share-url{
+    display:flex;align-items:center;gap:8px;margin-top:11px;max-width:420px;
+    background:#fff;border:1px solid #dbe4f8;border-radius:10px;padding:6px 7px 6px 12px;
+  }
+  .share-url code{
+    font-family:var(--mono);font-size:13px;color:#2b3f7d;flex:1;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .share-url .btn{border-color:transparent;background:#f2f6fe;color:#3b56c9}
+  .share-url .btn:hover{background:#e8efff;border-color:transparent}
+  .share-side{text-align:center;min-width:196px}
+  .share-code-label{font-size:11px;color:var(--faint);letter-spacing:.08em}
+  .share-code{
+    font-family:var(--mono);font-size:27px;font-weight:700;letter-spacing:.22em;
+    text-indent:.22em;color:var(--ink);margin:3px 0 11px;user-select:all;
+  }
+  .share-actions{display:flex;gap:7px;justify-content:center;flex-wrap:wrap}
+
+  .link-detail{
+    font-size:11.5px;color:#aab5c7;text-align:right;margin:8px 4px 0;
+    font-family:var(--mono);letter-spacing:.01em;
+  }
+
+  .relay-banner{
+    margin-top:16px;padding:16px 20px;display:flex;align-items:center;gap:18px;
+    justify-content:space-between;flex-wrap:wrap;
+    background:linear-gradient(135deg,#fffdf8,#fff6ec);border-color:#f7e4c9;
+  }
+  .relay-acts{display:flex;gap:8px;flex-wrap:wrap}
+  .relay-main strong{font-size:14px;color:#9a3412}
+  .relay-main p{font-size:12.5px;color:#8a6a4a;line-height:1.65;margin-top:5px;max-width:62ch}
+  .tag{
+    font-size:10.5px;font-weight:600;padding:1.5px 6px;border-radius:6px;flex:none;
+    background:#fff7ed;color:#b45309;border:1px solid #fbe3c4;
+  }
+
+  .pulse{width:7px;height:7px;border-radius:50%;background:var(--brand);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1.1)}}
+
+  .join-row{display:flex;gap:9px}
+  .code-input{
+    flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;
+    padding:11px 14px;font-family:var(--mono);font-size:17px;letter-spacing:.24em;
+    text-transform:uppercase;color:var(--ink);background:#fcfdff;outline:none;
+    transition:border-color .18s, box-shadow .18s;
+  }
+  .code-input::placeholder{color:#c3cddd;letter-spacing:.24em}
+  .code-input:focus{border-color:#a9b8ff;box-shadow:0 0 0 4px rgba(79,110,247,.12);background:#fff}
+  .err{color:var(--bad);font-size:12.5px;margin-top:9px;min-height:16px}
+  .bullets{margin-top:6px;padding-left:0;list-style:none;display:grid;gap:7px}
+  .bullets li{font-size:12.8px;color:var(--muted);padding-left:16px;position:relative;line-height:1.5}
+  .bullets li::before{content:"";position:absolute;left:0;top:7px;width:5px;height:5px;border-radius:50%;background:#c8d3e6}
+
+  .facts{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:26px}
+  .fact{
+    display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);
+    background:rgba(255,255,255,.72);border:1px solid var(--line);border-radius:999px;padding:7px 14px;
+  }
+  .fact b{color:var(--ink-2);font-weight:600}
+
+  /* ---------- 房间内 ---------- */
+  .room-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;flex-wrap:wrap}
+  .room-left,.room-right{display:flex;align-items:center;gap:10px}
+  .room-tag{font-size:11.5px;color:var(--faint);letter-spacing:.06em}
+  .room-code{font-family:var(--mono);font-size:17px;font-weight:700;letter-spacing:.18em;color:var(--ink)}
+  .icon-btn{
+    width:30px;height:30px;border-radius:9px;border:1px solid var(--line);background:#fff;
+    color:var(--muted);display:grid;place-items:center;font-size:14px;line-height:1;
+    transition:background .16s,border-color .16s,color .16s;
+  }
+  .icon-btn:hover{background:var(--brand-soft);border-color:#d6defb;color:var(--brand)}
+  .peer-chip{
+    display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;
+    background:#f8fafd;border:1px solid var(--line);font-size:12.8px;color:var(--muted);
+  }
+  .peer-chip .dot{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+  .peer-chip.ok{background:#f2fdf6;border-color:#d5f0df;color:#15803d}
+  .peer-chip.ok .dot{background:var(--ok);box-shadow:0 0 0 3px rgba(22,163,74,.13)}
+  .peer-chip.warn{background:#fffbf2;border-color:#f6e6c8;color:#b45309}
+  .peer-chip.warn .dot{background:var(--warn)}
+
+  .dropzone{
+    margin-top:16px;padding:34px 22px;text-align:center;
+    border:2px dashed #cfdaeb;border-radius:18px;background:#fdfeff;
+    transition:border-color .2s, background .2s, transform .2s;
+    cursor:pointer;
+  }
+  .dropzone:hover{border-color:#b7c6e2;background:#fcfdff}
+  .dropzone.drag{border-color:var(--brand);background:var(--brand-soft);transform:scale(1.004)}
+  .dropzone.disabled{opacity:.62;cursor:default}
+  .dz-icon{
+    width:46px;height:46px;border-radius:14px;margin:0 auto 12px;
+    display:grid;place-items:center;font-size:20px;font-weight:700;
+    background:linear-gradient(160deg,#eef3ff,#e4ecff);color:var(--brand);
+  }
+  .dz-title{font-size:15.5px;font-weight:600;color:var(--ink)}
+  .dz-sub{font-size:13px;color:var(--muted);margin-top:6px}
+  .dz-note{font-size:11.8px;color:var(--faint);margin-top:12px;line-height:1.6}
+
+  .list-card{margin-top:16px;padding:0;overflow:hidden}
+  .list-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:16px 20px 12px;border-bottom:1px solid var(--line-2)}
+  .list-head h3{font-size:14.5px;font-weight:650}
+  .list{max-height:46vh;overflow-y:auto;overscroll-behavior:contain}
+  .list::-webkit-scrollbar{width:9px}
+  .list::-webkit-scrollbar-thumb{background:#dfe7f3;border-radius:99px;border:2px solid #fff}
+  .empty{padding:30px 20px;text-align:center;font-size:13px;color:var(--faint)}
+
+  .row{display:flex;gap:13px;padding:14px 20px;border-bottom:1px solid var(--line-2);align-items:flex-start}
+  .row:last-child{border-bottom:none}
+  .row-ico{
+    width:36px;height:36px;border-radius:11px;flex:none;display:grid;place-items:center;
+    font-size:15px;font-weight:700;background:#f2f6fd;color:#7d8ba3;
+  }
+  .row.out .row-ico{background:#eef3ff;color:var(--brand)}
+  .row.in .row-ico{background:#eafaf7;color:#0f9488}
+  .row-body{flex:1;min-width:0}
+  .row-head{display:flex;align-items:baseline;gap:10px}
+  .row-name{font-size:13.8px;font-weight:550;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+  .row-size{font-size:11.8px;color:var(--faint);font-family:var(--mono);flex:none}
+  .bar{height:5px;background:#eef2f9;border-radius:99px;margin:8px 0 6px;overflow:hidden}
+  .bar > i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#5d7bff,#7d93ff);transition:width .18s linear}
+  .row.in .bar > i{background:linear-gradient(90deg,#14b8a6,#3dd6bd)}
+  .row.done .bar > i{background:linear-gradient(90deg,#22c55e,#4ade80)}
+  .row.err .bar > i{background:#f87171}
+  .row-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted)}
+  .row-rate{font-family:var(--mono);font-size:11.5px;color:var(--faint);white-space:nowrap}
+  .row.done .row-status{color:#15803d}
+  .row.err .row-status{color:var(--bad)}
+  .row-acts{display:flex;gap:7px;flex:none;align-items:center;padding-top:2px}
+
+  .msg-card{margin-top:16px;padding:14px 16px}
+  .msg-feed{display:flex;flex-direction:column;gap:8px;max-height:150px;overflow-y:auto;margin-bottom:10px}
+  .msg-feed:empty{display:none}
+  .bubble{font-size:13px;line-height:1.55;padding:8px 12px;border-radius:12px;max-width:78%;word-break:break-word;white-space:pre-wrap}
+  .bubble.them{background:#f4f7fd;color:var(--ink-2);align-self:flex-start;border-bottom-left-radius:4px}
+  .bubble.me{background:var(--brand-soft);color:#33409a;align-self:flex-end;border-bottom-right-radius:4px}
+  .msg-row{display:flex;gap:9px}
+  .msg-row input{
+    flex:1;min-width:0;border:1px solid var(--line);border-radius:11px;padding:10px 13px;
+    font-size:13.5px;outline:none;background:#fcfdff;transition:border-color .18s, box-shadow .18s;
+  }
+  .msg-row input:focus{border-color:#a9b8ff;box-shadow:0 0 0 3px rgba(79,110,247,.1);background:#fff}
+
+  .build{text-align:center;font-size:11.5px;color:#b3bdcd;margin-top:16px;letter-spacing:.02em;font-family:var(--mono)}
+
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);
+    background:rgba(17,24,39,.93);color:#fff;font-size:13px;
+    padding:11px 18px;border-radius:12px;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);
+    opacity:0;pointer-events:none;transition:opacity .22s ease, transform .22s ease;
+    max-width:min(420px,86vw);text-align:center;line-height:1.5;z-index:50;backdrop-filter:blur(6px);
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast.bad{background:rgba(153,27,27,.95)}
+  .toast.ok{background:rgba(6,95,70,.95)}
+
+  @media (max-width:560px){
+    .wrap{padding:20px 14px 48px}
+    .card{padding:18px}
+    .room-bar{padding:12px 14px}
+    .row{padding:12px 14px}
+    .dropzone{padding:24px 16px}
+    .dz-icon{width:40px;height:40px;margin-bottom:10px}
+    .share-panel{padding:16px}
+    .share-side{width:100%;text-align:left}
+    .share-code{text-align:left}
+    .share-actions{justify-content:flex-start}
+  }
+  @media (min-height:820px){
+    #viewLobby .facts{margin-top:32px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 14h10a4 4 0 0 0 0-8H9"/>
+          <path d="M12 3l-3 3 3 3"/>
+          <path d="M20 10H10a4 4 0 0 0 0 8h5"/>
+          <path d="M12 21l3-3-3-3"/>
+        </svg>
+      </div>
+      <div>
+        <h1>快传</h1>
+        <p>浏览器之间点对点直传</p>
+      </div>
+    </div>
+    <div class="pill" id="statusPill"><span class="dot"></span><span id="statusText">未连接</span></div>
+  </header>
+
+  <!-- ================= 大厅 ================= -->
+  <section id="viewLobby">
+    <div class="hero">
+      <h2>两台电脑，一个房间码，<em>直接传</em></h2>
+      <p>文件不经过服务器存储，只在两台电脑之间点对点流动。</p>
+    </div>
+
+    <div class="grid2">
+      <div class="card create-card">
+        <div class="card-top"><span class="step">01</span><h3>创建房间</h3></div>
+        <p class="muted">在这台电脑上生成房间码，然后告诉另一台电脑。</p>
+        <button class="btn primary block" id="btnCreate">生成房间码</button>
+        <p class="tip">生成后把房间码或邀请链接发给另一台电脑即可</p>
+      </div>
+
+      <div class="card">
+        <div class="card-top"><span class="step">02</span><h3>加入房间</h3></div>
+        <p class="muted">输入对方电脑上显示的 6 位房间码。</p>
+        <div class="join-row">
+          <input id="codeInput" class="code-input" maxlength="6" placeholder="ABC123"
+                 autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="latin">
+          <button class="btn primary" id="btnJoin">加入</button>
+        </div>
+        <p class="err" id="joinError"></p>
+        <ul class="bullets">
+          <li>同一个 Wi-Fi：另一台电脑直接访问本机的局域网地址</li>
+          <li>不在同一网络：两台电脑都打开同一个公网链接</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="facts">
+      <div class="fact"><b>端到端加密</b> DTLS 加密通道</div>
+      <div class="fact"><b>不落盘</b> 服务端只转发连接信息</div>
+      <div class="fact"><b>不限速</b> 速度取决于局域网带宽</div>
+    </div>
+
+    <p class="build" id="buildTag">诊断信息</p>
+  </section>
+
+  <!-- ================= 房间内 ================= -->
+  <section id="viewRoom" class="hidden">
+    <div class="card room-bar">
+      <div class="room-left">
+        <span class="room-tag">房间码</span>
+        <span class="room-code" id="roomCodeSm">------</span>
+        <button class="icon-btn" id="btnCopySm" title="复制邀请链接">⧉</button>
+      </div>
+      <div class="room-right">
+        <span class="peer-chip" id="peerChip"><i class="dot"></i><span id="peerLabel">等待对方加入…</span></span>
+        <button class="btn ghost small" id="btnLeave">离开</button>
+      </div>
+    </div>
+
+    <p class="link-detail hidden" id="linkDetail"></p>
+
+    <div class="card share-panel" id="sharePanel">
+      <div class="share-main">
+        <div class="share-title"><i class="pulse"></i><span id="shareTitle">等待另一台电脑加入</span></div>
+        <p class="share-sub">让对方打开下面这个地址并输入房间码；把邀请链接直接发过去，对方打开会自动加入。</p>
+        <div class="share-url"><code id="shareUrl">—</code><button class="btn ghost small" id="btnCopyUrl">复制地址</button></div>
+      </div>
+      <div class="share-side">
+        <div class="share-code-label">房间码</div>
+        <div class="share-code" id="shareCode">------</div>
+        <div class="share-actions">
+          <button class="btn ghost small" id="btnCopyCode2">复制房间码</button>
+          <button class="btn primary small" id="btnCopyLink2">复制邀请链接</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card relay-banner hidden" id="relayBanner">
+      <div class="relay-main">
+        <strong>直连没有建立起来</strong>
+        <p id="relayDetail">可以先换个网络重试，或改用服务器中转。</p>
+      </div>
+      <div class="relay-acts">
+        <button class="btn ghost small hidden" id="btnRelayCancel">取消自动切换</button>
+        <button class="btn primary small" id="btnRelay">改用服务器中转</button>
+      </div>
+    </div>
+
+    <div class="dropzone card disabled" id="dropzone">
+      <input type="file" id="fileInput" multiple hidden>
+      <input type="file" id="folderInput" webkitdirectory multiple hidden>
+      <div class="dz-icon">↑</div>
+      <div class="dz-title">把文件或文件夹拖到这里</div>
+      <div class="dz-sub">或者 <button class="link" id="btnPick">选择文件</button> · <button class="link" id="btnPickFolder">选择文件夹</button> · 文件夹会保留目录结构</div>
+      <div class="dz-note" id="saveHint">等待对方加入后即可发送</div>
+    </div>
+
+    <div class="card list-card" id="listCard">
+      <div class="list-head">
+        <h3>传输列表</h3>
+        <span class="muted small" id="listSummary"></span>
+      </div>
+      <div class="list" id="list">
+        <div class="empty" id="listEmpty">还没有文件。连接建立后拖入文件就能开始。</div>
+      </div>
+    </div>
+
+    <div class="card msg-card">
+      <div class="msg-feed" id="msgFeed"></div>
+      <div class="msg-row">
+        <input id="msgInput" placeholder="发一段文字或者链接给对方…" autocomplete="off" maxlength="2000">
+        <button class="btn ghost small" id="btnSendMsg">发送</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ================= 基础工具 ================= */
+  const $ = (sel) => document.querySelector(sel);
+  const flowMode = new URLSearchParams(location.search).get('flow') === 'ack' ? 'ack' : 'buf';
+  const CHUNK = 64 * 1024;           // 兜底分片；实际按 maxMessageSize 自适应，见 setupChunkSize
+  const WINDOW = 4 * 1024 * 1024;    // 已发未确认的窗口上限（Chrome 的发送缓冲约 16MB，别贴太近）
+  const ACK_EVERY = 512 * 1024;      // 接收端每收这么多字节回一个确认
+  const WRITE_BATCH = 4 * 1024 * 1024; // 接收端攒这么多再落盘，避免每 64KB 一次 IPC
+
+  const state = {
+    code: null,
+    role: null,
+    pc: null,
+    dc: null,
+    peerPresent: false,
+    hadPeer: false,
+    linkLabel: '',
+    info: null,
+    shareBase: '',
+    relayMode: false,
+    token: null,
+    chunkSize: 64 * 1024,
+    memberCount: 1,
+    deviceLabel: '',
+  };
+
+  const outgoing = new Map();  // 本机发出
+  const incoming = new Map();  // 收到的
+  const outQueue = [];
+  let sending = null;          // 正在发送的条目
+  let activeIncoming = null;   // 正在接收的条目
+  let candidateQueue = [];
+  let iceStats = {};
+  let ackWaiters = [];
+  let tickerOn = false;
+
+  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+
+  function deviceLabel() {
+    const ua = navigator.userAgent;
+    const kind = /iPhone|Android|Mobile/.test(ua) ? '手机'
+      : /Mac OS X/.test(ua) ? 'Mac'
+      : /Windows/.test(ua) ? 'Windows'
+      : '设备';
+    return kind + '·' + Math.random().toString(36).slice(2, 4);
+  }
+
+  function fmtSize(n) {
+    if (!n) return '0 B';
+    if (n < 1024) return n + ' B';
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let i = -1;
+    do { n /= 1024; i++; } while (n >= 1024 && i < units.length - 1);
+    return (n < 10 ? n.toFixed(2) : n < 100 ? n.toFixed(1) : Math.round(n)) + ' ' + units[i];
+  }
+
+  function fmtEta(sec) {
+    if (!isFinite(sec) || sec <= 0) return '';
+    if (sec < 60) return Math.ceil(sec) + ' 秒';
+    if (sec < 3600) return Math.floor(sec / 60) + ' 分 ' + Math.round(sec % 60) + ' 秒';
+    return Math.floor(sec / 3600) + ' 小时 ' + Math.round((sec % 3600) / 60) + ' 分';
+  }
+
+  let toastTimer = null;
+  function toast(msg, kind) {
+    const el = $('#toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (kind ? ' ' + kind : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = 'toast' + (kind ? ' ' + kind : ''); }, 3200);
+  }
+
+  function setStatus(text, kind) {
+    const pill = $('#statusPill');
+    pill.className = 'pill' + (kind ? ' ' + kind : '');
+    $('#statusText').textContent = text;
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (_) {}
+      ta.remove();
+      return ok;
+    }
+  }
+
+  /* ================= 转发表 ================= */
+  const rowById = new Map();
+
+  function statusTextFor(item) {
+    const map = {
+      queued: '排队中',
+      waiting: '等待对方接收…',
+      sending: '发送中',
+      receiving: '接收中',
+      done: item.dir === 'out' ? '已发送' : (item.writable ? '已保存到磁盘' : '已接收'),
+      rejected: item.dir === 'in' ? '你已拒绝接收' : '对方拒绝了',
+      canceled: item.selfCancel ? '已取消' : (item.dir === 'out' ? '对方取消了接收' : '对方已取消'),
+      error: '出错：' + (item.err || '未知原因'),
+    };
+    // 接收端在 done 之前，meta 刚到的状态
+    if (item.dir === 'in' && item.status === 'queued') {
+      if (item.relayToken) return item.from ? '来自 ' + item.from + '，等待下载' : '等待你下载';
+      return '等待你接收';
+    }
+    return map[item.status] || '';
+  }
+
+  function actionsFor(item) {
+    if (item.dir === 'in') {
+      if (item.relayToken) {
+        if (item.status === 'queued') return [{ act: 'download', label: '下载', primary: true }, { act: 'ignore', label: '忽略' }];
+        return [];
+      }
+      if (item.status === 'queued') return [{ act: 'accept', label: '接收', primary: true }, { act: 'reject', label: '拒绝' }];
+      if (item.status === 'receiving') return [{ act: 'abort', label: '取消' }];
+      if (item.status === 'done' && item.blobUrl) return [{ act: 'save', label: '下载' }];
+      return [];
+    }
+    if (item.status === 'queued') return [{ act: 'remove', label: '移除' }];
+    if (item.status === 'waiting' || item.status === 'sending') return [{ act: 'abort', label: '取消' }];
+    return [];
+  }
+
+  function buildRow(item) {
+    const el = document.createElement('div');
+    el.className = 'row ' + item.dir;
+    el.innerHTML =
+      '<div class="row-ico"><span></span></div>' +
+      '<div class="row-body">' +
+        '<div class="row-head"><span class="row-name"></span><span class="tag hidden">中转</span><span class="row-size"></span></div>' +
+        '<div class="bar"><i></i></div>' +
+        '<div class="row-foot"><span class="row-status"></span><span class="row-rate"></span></div>' +
+      '</div>' +
+      '<div class="row-acts"></div>';
+
+    el.querySelector('.row-ico span').textContent = item.dir === 'out' ? '↑' : '↓';
+    const displayName = item.folderArchive ? item.folderName + '（文件夹）' : (item.relativePath || item.name);
+    el.querySelector('.row-name').textContent = displayName;
+    el.querySelector('.row-name').title = displayName;
+    el.querySelector('.row-size').textContent = fmtSize(item.size);
+
+    el.querySelector('.row-acts').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-act]');
+      if (btn) onRowAction(item, btn.dataset.act);
+    });
+
+    item.row = {
+      el,
+      bar: el.querySelector('.bar > i'),
+      tag: el.querySelector('.tag'),
+      status: el.querySelector('.row-status'),
+      rate: el.querySelector('.row-rate'),
+      acts: el.querySelector('.row-acts'),
+      actSig: '',
+    };
+    rowById.set(item.id, item);
+    return el;
+  }
+
+  function renderRow(item) {
+    if (!item.row) return;
+    const r = item.row;
+    const total = item.size || 1;
+    const bytes = item.dir === 'out' ? item.sent : item.received;
+    const pct = item.status === 'done' ? 100 : Math.min(100, (bytes / total) * 100);
+    r.bar.style.width = pct.toFixed(2) + '%';
+
+    const finished = ['done', 'error', 'canceled', 'rejected'].includes(item.status);
+    r.el.className = 'row ' + item.dir + (item.status === 'done' ? ' done' : '') + (item.status === 'error' ? ' err' : '');
+
+    r.status.textContent = statusTextFor(item);
+    if (r.tag) r.tag.classList.toggle('hidden', !(item.relay || item.relayToken));
+
+    let rate = '';
+    if (item.status === 'sending' || item.status === 'receiving') {
+      rate = Math.round(pct) + '%';
+      // 刚起步的第一次采样偏差很大，累计两次采样后再报速度和剩余时间
+      if (item.speed > 0 && (item._samples || 0) >= 2) {
+        const remain = (total - bytes) / item.speed;
+        rate += '  ' + fmtSize(item.speed) + '/s · 还剩 ' + fmtEta(remain);
+      }
+    } else if (item.status === 'done') {
+      rate = item.elapsed ? '用时 ' + fmtEta(item.elapsed) : '';
+    }
+    r.rate.textContent = rate;
+
+    const acts = actionsFor(item);
+    const sig = acts.map((a) => a.act + a.label).join('|');
+    if (sig !== r.actSig) {
+      r.actSig = sig;
+      r.acts.innerHTML = '';
+      acts.forEach((a) => {
+        const b = document.createElement('button');
+        b.className = 'btn tiny small' + (a.primary ? ' primary' : ' ghost');
+        b.dataset.act = a.act;
+        b.textContent = a.label;
+        if (!a.primary) b.style.padding = '6px 10px';
+        b.style.fontSize = '12.5px';
+        r.acts.appendChild(b);
+      });
+    }
+    if (finished) item.row.el.style.opacity = item.status === 'done' ? '1' : '.72';
+  }
+
+  function addToList(item) {
+    const list = $('#list');
+    const empty = $('#listEmpty');
+    if (empty) empty.remove();
+    const el = buildRow(item);
+    list.appendChild(el);
+    list.scrollTop = list.scrollHeight;
+    renderRow(item);
+    updateSummary();
+  }
+
+  function updateSummary() {
+    const items = [...outgoing.values(), ...incoming.values()];
+    const done = items.filter((i) => i.status === 'done').length;
+    $('#listSummary').textContent = items.length
+      ? items.length + ' 个文件 · 已完成 ' + done
+      : '';
+  }
+
+  function startTicker() {
+    if (tickerOn) return;
+    tickerOn = true;
+    let last = performance.now();
+    const timer = setInterval(() => {
+      const now = performance.now();
+      const dt = (now - last) / 1000;
+      last = now;
+      let active = false;
+      for (const item of rowById.values()) {
+        if (item.status === 'sending' || item.status === 'receiving') {
+          active = true;
+          const bytes = item.dir === 'out' ? item.sent : item.received;
+          if (dt > 0.05) {
+            const inst = (bytes - (item._lastBytes || 0)) / dt;
+            item._lastBytes = bytes;
+            item._samples = (item._samples || 0) + 1;
+            item.speed = item.speed ? item.speed * 0.72 + inst * 0.28 : inst;
+          }
+          renderRow(item);
+        }
+      }
+      if (!active) {
+        clearInterval(timer);
+        tickerOn = false;
+      }
+    }, 120);
+  }
+
+  /**
+   * 流控：发送端只允许「已发但对方未确认」的数据不超过 WINDOW。
+   * 用确认消息而不是 bufferedamountlow / setTimeout：
+   * 页面切到后台时 Chrome 会节流定时器，甚至不触发低水位事件，靠事件会把速度压得很低。
+   */
+  function waitBuffered(dc) {
+    if (dc.bufferedAmount <= 2 * 1024 * 1024) return Promise.resolve();
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        dc.removeEventListener('bufferedamountlow', finish);
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(finish, 60);
+      dc.addEventListener('bufferedamountlow', finish);
+    });
+  }
+
+  function waitAck() {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        const i = ackWaiters.indexOf(finish);
+        if (i >= 0) ackWaiters.splice(i, 1);
+        resolve();
+      };
+      const timer = setTimeout(finish, 20000); // 对方长时间没响应，别无限等
+      ackWaiters.push(finish);
+    });
+  }
+
+  function signalAck() {
+    const list = ackWaiters.slice();
+    ackWaiters.length = 0;
+    list.forEach((fn) => fn());
+  }
+
+  /* ================= 信令通道：WebSocket，失败自动降级 HTTP 轮询 ================= */
+  const BUILD = '2026-11-03.1';
+  const sig = {
+    mode: null,        // 'ws' | 'poll'
+    ws: null,
+    sid: null,
+    chain: Promise.resolve(),
+    opening: null,
+  };
+
+  // 分享域名要求每个请求都带 sharecode；地址栏被改写时用 sessionStorage 兜底
+  function sharecode() {
+    const fromUrl = new URLSearchParams(location.search).get('sharecode');
+    if (fromUrl) {
+      try { sessionStorage.setItem('kuaichuan.sharecode', fromUrl); } catch (_) {}
+      return fromUrl;
+    }
+    try { return sessionStorage.getItem('kuaichuan.sharecode') || ''; } catch (_) { return ''; }
+  }
+
+  function sigUrl(path) {
+    const sc = sharecode();
+    const sep = path.includes('?') ? '&' : '?';
+    return path + (sc ? sep + 'sharecode=' + encodeURIComponent(sc) : '');
+  }
+
+  function sigSend(obj) {
+    if (sig.mode === 'ws' && sig.ws && sig.ws.readyState === 1) {
+      sig.ws.send(JSON.stringify(obj));
+      return true;
+    }
+    if (sig.mode === 'poll' && sig.sid) {
+      const body = JSON.stringify({ sid: sig.sid, msg: obj });
+      // 串行发送：保证 SDP 一定排在 ICE 候选之前
+      sig.chain = sig.chain
+        .then(() => fetch(sigUrl('/api/sig/send'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        }))
+        .catch(() => {});
+      return true;
+    }
+    return false;
+  }
+
+  function openSignal() {
+    if (sig.mode === 'ws' && sig.ws && sig.ws.readyState === 1) return Promise.resolve(sig.mode);
+    if (sig.mode === 'poll' && sig.sid) return Promise.resolve(sig.mode);
+    if (sig.opening) return sig.opening;
+
+    sig.opening = (async () => {
+      const forcePoll = new URLSearchParams(location.search).get('sig') === 'poll';
+      if (!forcePoll && (await tryWebSocket())) {
+        sig.mode = 'ws';
+        return 'ws';
+      }
+      await startPolling();
+      if (!forcePoll) toast('WebSocket 被网络拦截，已自动切换为轮询信令', '');
+      return 'poll';
+    })().finally(() => { sig.opening = null; });
+
+    return sig.opening;
+  }
+
+  function tryWebSocket() {
+    return new Promise((resolve) => {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      let sock;
+      try { sock = new WebSocket(proto + '//' + location.host + sigUrl('/ws')); }
+      catch (_) { return resolve(false); }
+
+      let settled = false;
+      const finish = (ok) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (!ok) { try { sock.close(); } catch (_) {} }
+        resolve(ok);
+      };
+      // 5 秒还没握手成功就判定被拦截，改走轮询
+      const timer = setTimeout(() => finish(false), 5000);
+
+      sock.addEventListener('open', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        sig.ws = sock;
+        sig.mode = 'ws';
+        updateBuildTag();
+        sock.addEventListener('message', (ev) => {
+          let msg;
+          try { msg = JSON.parse(ev.data); } catch (_) { return; }
+          handleServerMessage(msg);
+        });
+        sock.addEventListener('close', () => {
+          if (sig.ws !== sock) return;
+          sig.ws = null;
+          sig.mode = null;
+          updateBuildTag();
+          onSignalLost();
+        });
+        resolve(true);
+      });
+      sock.addEventListener('error', () => finish(false));
+      sock.addEventListener('close', () => finish(false));
+    });
+  }
+
+  async function startPolling() {
+    const res = await fetch(sigUrl('/api/sig/open'), { method: 'POST' });
+    if (!res.ok) throw new Error('信令服务返回 ' + res.status);
+    const data = await res.json();
+    if (!data.sid) throw new Error('信令服务没有返回会话');
+    sig.mode = 'poll';
+    sig.sid = data.sid;
+    updateBuildTag();
+    pollLoop();
+  }
+
+  async function pollLoop() {
+    const sid = sig.sid;
+    if (sig.mode !== 'poll' || !sid) return;
+    try {
+      const res = await fetch(sigUrl('/api/sig/poll?sid=' + encodeURIComponent(sid) + '&t=10000'));
+      if (res.status === 200) {
+        const data = await res.json();
+        (data.msgs || []).forEach((m) => handleServerMessage(m));
+      } else if (res.status === 410) {
+        sig.mode = null;
+        sig.sid = null;
+        onSignalLost();
+        return;
+      }
+    } catch (_) {
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+    if (sig.mode === 'poll' && sig.sid === sid) pollLoop();
+  }
+
+  let resumeTimer = null;
+  let resumeTries = 0;
+  let heartbeatTimer = null;
+
+  function stopResume() {
+    if (resumeTimer) clearTimeout(resumeTimer);
+    resumeTimer = null;
+  }
+
+  /**
+   * 信令断了：房间会在服务端保留 90 秒，带 token 回去就能续上。
+   * 重连直接走轮询——实测这个网关对单条 WebSocket 有 60 秒寿命，
+   * 用 WebSocket 重连接几分钟就要再断一次。
+   */
+  function onSignalLost() {
+    if (!state.code) return;
+    if (resumeTimer) return;
+    setStatus('正在重连…', 'warn');
+    setPeerChip('信令断开，正在重连…', 'warn');
+    resumeTries = 0;
+
+    const attempt = async () => {
+      if (!state.code) { stopResume(); return; }
+      try {
+        sig.mode = null;
+        sig.ws = null;
+        if (!(sig.mode === 'poll' && sig.sid)) await startPolling();
+        sigSend({ t: 'resume', code: state.code, token: state.token });
+      } catch (_) {
+        sig.mode = null;
+        sig.sid = null;
+      }
+      resumeTries++;
+      if (resumeTries < 40) resumeTimer = setTimeout(attempt, 3000);
+      else stopResume();
+    };
+    attempt();
+  }
+
+  function startHeartbeat() {
+    if (heartbeatTimer) return;
+    heartbeatTimer = setInterval(() => {
+      if (!state.code) return;
+      if (sig.mode === 'ws' && sig.ws && sig.ws.readyState === 1) sigSend({ t: 'ping' });
+      // 顺带把闲置的容器焐热，避免冷启动把房间丢掉
+      fetch(sigUrl('/health')).catch(() => {});
+    }, 20000);
+  }
+
+  function updateBuildTag() {
+    const el = $('#buildTag');
+    if (!el) return;
+    const mode = sig.mode === 'ws' ? 'WebSocket' : sig.mode === 'poll' ? 'HTTP 轮询' : '未连接';
+    el.textContent = 'v' + BUILD + ' · 信令 ' + mode;
+  }
+
+  function handleServerMessage(msg) {
+    switch (msg.t) {
+      case 'created':
+        stopResume();
+        state.code = msg.code;
+        state.role = 'host';
+        if (msg.token) state.token = msg.token;
+        if (!msg.adopted) toast('房间已创建', 'ok');
+        enterRoom(msg.code);
+        break;
+
+      case 'joined':
+        stopResume();
+        state.code = msg.code;
+        state.role = 'guest';
+        if (msg.token) state.token = msg.token;
+        state.peerPresent = true;   // 能加入说明房主在线，中转模式需要这个判断
+        enterRoom(msg.code);
+        break;
+
+      case 'peer-joined':
+        state.peerPresent = true;
+        setPeerChip('对方已加入 · 正在建立直连…', 'warn');
+        setStatus('正在连接对方…', 'warn');
+        updateSharePanel();
+        updatePeerReadyUI();
+        break;
+
+      case 'start':
+        state.peerPresent = true;
+        updateSharePanel();
+        if (state.dc && state.dc.readyState === 'open') break; // 通道还活着，别打断传输
+        buildPeer(!!msg.initiator).then(() => {
+          if (msg.initiator) startOffer();
+        }).catch(() => {});
+        break;
+
+      case 'signal':
+        handleSignal(msg.data);
+        break;
+
+      case 'resumed':
+        stopResume();
+        state.code = msg.code;
+        state.role = msg.role || state.role;
+        toast('已重新连接', 'ok');
+        setStatus('房间 ' + msg.code, 'warn');
+        updateSharePanel();
+        updatePeerReadyUI();
+        break;
+
+      case 'resume-failed':
+        // 房间过期了：房主沿用原房间码重建，加入方重新加入
+        if (state.role === 'host') sigSend({ t: 'create', code: state.code });
+        else if (state.code) sigSend({ t: 'join', code: state.code });
+        break;
+
+      case 'members': {
+        state.memberCount = Math.max(1, Number(msg.count) || 1);
+        state.peerPresent = state.memberCount > 1;
+        if (state.memberCount > 2 && !state.relayMode) {
+          resetPeer();
+          enableRelay(false);
+          toast('房间里已有 ' + state.memberCount + ' 人，已切换为服务器分发：一次上传，其他人各自下载', '');
+        }
+        updatePeerReadyUI();
+        updateSharePanel();
+        break;
+      }
+
+      case 'peer-offline':
+        state.peerPresent = false;
+        setPeerChip('对方连接中断，等待重连…', 'warn');
+        setStatus('等待对方重连', 'warn');
+        break;
+
+      case 'peer-online':
+        state.peerPresent = true;
+        setPeerChip('对方已重新连接', 'warn');
+        break;
+
+      case 'peer-left':
+        onPeerLeft();
+        break;
+
+      case 'error':
+        $('#joinError').textContent = msg.msg || '出错了';
+        $('#btnJoin').disabled = false;
+        $('#btnJoin').textContent = '加入';
+        toast(msg.msg || '出错了', 'bad');
+        break;
+
+      case 'left':
+        break;
+      default:
+        break;
+    }
+  }
+
+  /* ================= 页面切换 ================= */
+  function enterRoom(code) {
+    $('#viewLobby').classList.add('hidden');
+    $('#viewRoom').classList.remove('hidden');
+    $('#roomCodeSm').textContent = code;
+    $('#shareCode').textContent = code;
+    updateShareUrl();
+    updateSharePanel();
+    setStatus('房间 ' + code, 'warn');
+    setupSaveHint();
+    updatePeerReadyUI();
+    startHeartbeat();
+    history.replaceState(null, '', location.pathname + location.search + '#' + code);
+  }
+
+  function backToLobby() {
+    $('#viewRoom').classList.add('hidden');
+    $('#viewLobby').classList.remove('hidden');
+    $('#btnCreate').disabled = false;
+    $('#btnCreate').textContent = '生成房间码';
+    setStatus('未连接', '');
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
+  function setPeerChip(text, kind) {
+    const chip = $('#peerChip');
+    chip.className = 'peer-chip' + (kind ? ' ' + kind : '');
+    $('#peerLabel').textContent = text;
+  }
+
+  function updatePeerReadyUI() {
+    const dcOpen = !!(state.dc && state.dc.readyState === 'open');
+    const relayReady = state.relayMode && state.peerPresent;
+    const ready = dcOpen || relayReady;
+    const dz = $('#dropzone');
+    dz.classList.toggle('disabled', !ready);
+
+    if (!ready) {
+      setPeerChip(state.peerPresent ? '正在建立直连…' : '等待对方加入…', state.peerPresent ? 'warn' : '');
+      $('#saveHint').textContent = state.peerPresent ? '正在建立直连…' : '等待对方加入后即可发送';
+    } else if (!dcOpen && relayReady) {
+      const group = state.memberCount > 2;
+      setPeerChip(group ? state.memberCount + ' 人 · 服务器分发' : '服务器中转', 'warn');
+      setStatus(group ? state.memberCount + ' 人房间' : '中转模式', 'warn');
+      $('#saveHint').textContent = group
+        ? '多人房间：一次上传，房间里其他人各自下载'
+        : '中转模式：文件经服务器短暂存放，对方下载后即删除';
+    } else {
+      setPeerChip(state.linkLabel || '已直连', 'ok');
+      setStatus(state.linkLabel || '已直连', 'ok');
+      $('#saveHint').textContent = '文件会直接写到对方的磁盘（或浏览器下载）';
+      const ld = $('#linkDetail');
+      if (ld && state.linkDetail) { ld.textContent = '实际链路 ' + state.linkDetail; ld.classList.remove('hidden'); }
+    }
+  }
+
+  function setupSaveHint() {
+    if (window.showSaveFilePicker) {
+      $('#saveHint').textContent = '接收时可选择保存位置，传输边写盘';
+    } else {
+      $('#saveHint').textContent = '接收的文件会先进入内存再触发下载（建议单文件 ≤ 500MB）';
+    }
+  }
+
+  /* ================= WebRTC ================= */
+  const ICE = {
+    iceServers: [
+      { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+      { urls: 'stun:stun.miwifi.com:3478' },
+      { urls: 'stun:stun.chat.bilibili.com:3478' },
+      { urls: 'stun:stun.cloudflare.com:3478' },
+    ],
+    iceCandidatePoolSize: 2,
+  };
+
+  function resetPeer() {
+    const dc = state.dc;
+    const pc = state.pc;
+    state.dc = null;
+    state.pc = null;
+    if (dc) { try { dc.close(); } catch (_) {} }
+    if (pc) { try { pc.close(); } catch (_) {} }
+    candidateQueue = [];
+    iceStats = {};
+    activeIncoming = null;
+    sending = null;       // 队列保留：重连后还能继续发
+    state.linkLabel = '';
+    signalAck();          // 放掉在等确认的发送循环
+  }
+
+  async function buildPeer(initiator) {
+    resetPeer();
+    const pc = new RTCPeerConnection(ICE);
+    state.pc = pc;
+    // 浏览器给的上限（Chrome 256KB、Safari 64KB），分片大一些能显著减少消息开销
+    try {
+      const override = Number(new URLSearchParams(location.search).get('chunk')) * 1024;
+      const max = pc.sctp && pc.sctp.maxMessageSize;
+      state.chunkSize = override > 0
+        ? Math.max(16 * 1024, override)
+        : Math.max(32 * 1024, Math.min(128 * 1024, max || CHUNK));
+    } catch (_) {
+      state.chunkSize = CHUNK;
+    }
+
+    pc.addEventListener('icecandidate', (e) => {
+      if (!e.candidate) return;
+      const type = e.candidate.type || 'unknown';
+      iceStats[type] = (iceStats[type] || 0) + 1;
+      sigSend({ t: 'signal', data: { candidate: e.candidate } });
+    });
+
+    pc.addEventListener('connectionstatechange', () => {
+      const s = pc.connectionState;
+      if (s === 'connected') {
+        detectLinkType(pc);
+      } else if (s === 'failed') {
+        setPeerChip('直连建立失败', 'warn');
+        setStatus('连接失败', 'bad');
+        showRelayBanner();
+      } else if (s === 'disconnected') {
+        setPeerChip('连接不稳定…', 'warn');
+      }
+    });
+
+    if (initiator) {
+      bindChannel(pc.createDataChannel('file', { ordered: true }));
+    } else {
+      pc.addEventListener('datachannel', (e) => bindChannel(e.channel));
+    }
+    return pc;
+  }
+
+  async function startOffer() {
+    const pc = state.pc;
+    if (!pc) return;
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      sigSend({ t: 'signal', data: { sdp: pc.localDescription } });
+    } catch (err) {
+      toast('创建连接失败：' + err.message, 'bad');
+    }
+  }
+
+  async function handleSignal(data) {
+    if (!data) return;
+    if (data.relay) { onRelayIncoming(data.relay); return; }
+    const pc = state.pc;
+    if (!pc) return;
+    try {
+      if (data.sdp) {
+        if (data.sdp.type === 'offer') {
+          await pc.setRemoteDescription(data.sdp);
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          sigSend({ t: 'signal', data: { sdp: pc.localDescription } });
+          await flushCandidates();
+        } else {
+          await pc.setRemoteDescription(data.sdp);
+          await flushCandidates();
+        }
+      } else if (data.candidate) {
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+          await pc.addIceCandidate(data.candidate).catch(() => {});
+        } else {
+          candidateQueue.push(data.candidate);
+        }
+      }
+    } catch (err) {
+      console.warn('信令处理失败', err);
+    }
+  }
+
+  async function flushCandidates() {
+    const pc = state.pc;
+    if (!pc) return;
+    const list = candidateQueue;
+    candidateQueue = [];
+    for (const c of list) {
+      try { await pc.addIceCandidate(c); } catch (_) {}
+    }
+  }
+
+  function bindChannel(dc) {
+    state.dc = dc;
+    dc.binaryType = 'arraybuffer';
+    dc.bufferedAmountLowThreshold = 256 * 1024;
+
+    dc.addEventListener('open', () => {
+      state.hadPeer = true;
+      state.relayMode = false;
+      const rb = $('#relayBanner');
+      if (rb) rb.classList.add('hidden');
+      updatePeerReadyUI();
+      updateSharePanel();
+      toast('直连已建立，可以开始传文件了', 'ok');
+      pumpQueue();
+    });
+
+    dc.addEventListener('close', () => {
+      if (state.dc !== dc) return;
+      setPeerChip('连接已断开', 'warn');
+      setStatus('连接已断开', 'bad');
+      updatePeerReadyUI();
+    });
+
+    dc.addEventListener('message', (ev) => {
+      if (typeof ev.data === 'string') {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch (_) { return; }
+        handleControl(msg);
+      } else {
+        onChunk(ev.data);
+      }
+    });
+  }
+
+  async function detectLinkType(pc) {
+    try {
+      const stats = await pc.getStats();
+      let pair = null;
+      stats.forEach((r) => {
+        if (r.type === 'transport' && r.selectedCandidatePairId) {
+          pair = stats.get(r.selectedCandidatePairId) || null;
+        }
+      });
+      if (!pair) {
+        stats.forEach((r) => {
+          if (r.type === 'candidate-pair' && (r.selected || r.nominated) && r.state === 'succeeded') pair = r;
+        });
+      }
+      let label = 'P2P 直连';
+      if (pair) {
+        const local = stats.get(pair.localCandidateId);
+        const remote = stats.get(pair.remoteCandidateId);
+        if (local && local.candidateType === 'host' && remote && remote.candidateType === 'host') label = '局域网直连';
+        else if (local && local.candidateType === 'relay') label = '经中继连接';
+        // Chrome 会把本地 IP 隐成 mDNS，但协议与候选类型足以判断链路好坏
+        state.linkDetail = ((local && local.protocol) || 'udp') + ' '
+          + ((local && local.candidateType) || '?')
+          + ' → ' + ((remote && remote.candidateType) || '?');
+      }
+      state.linkLabel = label;
+      const el = $('#linkDetail');
+      if (el && state.linkDetail) el.textContent = '实际链路 ' + state.linkDetail;
+      if (state.dc && state.dc.readyState === 'open') updatePeerReadyUI();
+    } catch (_) {}
+  }
+
+  /* ================= 控制消息 ================= */
+  function sendJSON(obj) {
+    if (state.dc && state.dc.readyState === 'open') {
+      state.dc.send(JSON.stringify(obj));
+      return true;
+    }
+    return false;
+  }
+
+  function handleControl(msg) {
+    switch (msg.t) {
+      case 'meta': {
+        const item = {
+          id: msg.id, dir: 'in', name: msg.name, size: msg.size, mime: msg.mime,
+          folderArchive: !!msg.folderArchive, folderName: msg.folderName || '',
+          status: 'queued', received: 0, speed: 0,
+          blob: null, pending: [], pendingBytes: 0,
+          writeChain: Promise.resolve(), writable: null, blobUrl: null,
+        };
+        incoming.set(item.id, item);
+        addToList(item);
+        toast('对方想发送：' + msg.name, '');
+        break;
+      }
+
+      case 'accept': {
+        const item = outgoing.get(msg.id);
+        if (item && item.status === 'waiting') startSending(item);
+        break;
+      }
+
+      case 'reject': {
+        const item = outgoing.get(msg.id);
+        if (item) {
+          item.status = 'rejected';
+          renderRow(item);
+          if (sending === item) sending = null;
+          pumpQueue();
+        }
+        break;
+      }
+
+      case 'cancel': {
+        // 可能是对方取消接收（我方在发），也可能是对方取消发送（我方在收）
+        const out = outgoing.get(msg.id);
+        if (out) {
+          const wasWaiting = out.status === 'waiting';
+          out.aborted = true;
+          signalAck();
+          out.status = 'canceled';
+          if (wasWaiting && sending === out) sending = null;
+          renderRow(out);
+          if (wasWaiting) pumpQueue();
+          break;
+        }
+        const item = incoming.get(msg.id);
+        if (item) {
+          item.status = 'canceled';
+          if (item.writable) { try { item.writable.abort(); } catch (_) {} }
+          item.blob = null;
+          item.pending = [];
+          item.pendingBytes = 0;
+          if (activeIncoming === item) activeIncoming = null;
+          renderRow(item);
+        }
+        break;
+      }
+
+      case 'done': {
+        const item = incoming.get(msg.id);
+        if (item) finishIncoming(item);
+        break;
+      }
+
+      case 'text': {
+        addBubble(String(msg.body || ''), 'them');
+        break;
+      }
+
+      case 'ack': {
+        const item = outgoing.get(msg.id);
+        if (item) {
+          item.acked = Math.max(item.acked || 0, Number(msg.bytes) || 0);
+          signalAck();
+        }
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
+
+  /* ================= 发送端 ================= */
+  async function enqueueFiles(fileList) {
+    const files = Array.from(fileList || []).filter((f) => f.size >= 0);
+    if (!files.length) return;
+    if (!state.relayMode && (!state.dc || state.dc.readyState !== 'open')) {
+      toast('还没连上对方，先等直连建立', 'bad');
+      return;
+    }
+    const folders = new Map();
+    const items = [];
+    for (const file of files) {
+      const relativePath = file.relativePath || file.webkitRelativePath || '';
+      if (relativePath) {
+        const parts = relativePath.split('/').filter(Boolean);
+        const folderName = parts.shift() || file.name;
+        if (!folders.has(folderName)) folders.set(folderName, []);
+        folders.get(folderName).push({ path: [folderName, ...parts].join('/'), blob: file });
+        continue;
+      }
+      const item = {
+        id: uid(), dir: 'out', name: file.name, size: file.size, mime: file.type || '',
+        file, status: 'queued', sent: 0, acked: 0, speed: 0, relay: state.relayMode,
+      };
+      items.push(item);
+    }
+    for (const [folderName, entries] of folders) {
+      try {
+        toast('正在打包文件夹：' + folderName, '');
+        const archive = await createZipBlob(entries);
+        items.push({
+          id: uid(), dir: 'out', name: folderName, folderName, folderArchive: true,
+          size: archive.size, mime: 'application/zip', file: archive,
+          status: 'queued', sent: 0, acked: 0, speed: 0, relay: state.relayMode,
+        });
+      } catch (err) {
+        toast('文件夹打包失败：' + (err.message || folderName), 'bad');
+      }
+    }
+    for (const item of items) {
+      outgoing.set(item.id, item);
+      outQueue.push(item);
+      addToList(item);
+    }
+    pumpQueue();
+  }
+
+  function pumpQueue() {
+    if (sending) return;
+    const relay = state.relayMode;
+    if (!relay && (!state.dc || state.dc.readyState !== 'open')) return;
+    const item = outQueue.shift();
+    if (!item) return;
+    sending = item;
+    if (item.relay) { uploadViaRelay(item); return; }
+    item.status = 'waiting';
+    item.speed = 0;
+    renderRow(item);
+    sendJSON({ t: 'meta', id: item.id, name: item.name, folderArchive: !!item.folderArchive, folderName: item.folderName || '', size: item.size, mime: item.mime });
+  }
+
+  async function startSending(item) {
+    const dc = state.dc;
+    const t0 = performance.now();
+    item.status = 'sending';
+    item.sent = 0;
+    item.acked = 0;
+    item._lastBytes = 0;
+    item._samples = 0;
+    item.speed = 0;
+    renderRow(item);
+    startTicker();
+
+    const size = item.size;
+    const READ = 4 * 1024 * 1024; // 一次读 4MB 再切片，减少 blob 读取的 IPC 次数
+    const chunkSize = state.chunkSize || CHUNK;
+    let offset = 0;
+    let readOffset = 0;
+    let buf = null;
+    let pos = 0;
+
+    try {
+      while (offset < size) {
+        if (item.aborted) throw new Error('已取消');
+        if (!dc || dc.readyState !== 'open') throw new Error('连接已断开');
+
+        if (!buf || pos >= buf.length) {
+          if (readOffset >= size) break;
+          const end = Math.min(readOffset + READ, size);
+          buf = new Uint8Array(await item.file.slice(readOffset, end).arrayBuffer());
+          readOffset = end;
+          pos = 0;
+          if (!buf.length) throw new Error('读取文件失败');
+        }
+
+        while (pos < buf.length) {
+          if (flowMode === 'buf') {
+            if (dc.bufferedAmount > 8 * 1024 * 1024) await waitBuffered(dc);
+          } else if (offset - item.acked > WINDOW && dc.readyState === 'open') {
+            while (offset - item.acked > WINDOW && dc.readyState === 'open' && !item.aborted) {
+              await waitAck();
+            }
+          }
+          if (item.aborted) throw new Error('已取消');
+          if (dc.readyState !== 'open') throw new Error('连接已断开');
+
+          const take = Math.min(chunkSize, buf.length - pos);
+          dc.send(buf.subarray(pos, pos + take));
+          pos += take;
+          offset += take;
+          item.sent = offset;
+        }
+      }
+
+      if (item.aborted) throw new Error('已取消');
+
+      dc.send(JSON.stringify({ t: 'done', id: item.id }));
+      item.status = 'done';
+      item.elapsed = (performance.now() - t0) / 1000;
+      item.sent = size;
+      item.speed = 0;
+      toast('已发送：' + item.name, 'ok');
+    } catch (err) {
+      if (item.aborted || item.status === 'canceled') {
+        item.status = 'canceled';
+      } else {
+        item.status = 'error';
+        item.err = err.message;
+        if (dc && dc.readyState === 'open') dc.send(JSON.stringify({ t: 'cancel', id: item.id }));
+      }
+    } finally {
+      if (sending === item) sending = null;
+      renderRow(item);
+      updateSummary();
+      pumpQueue();
+    }
+  }
+
+  function onRelayIncoming(msg) {
+    if (!msg || !msg.token) return;
+    const item = {
+      id: msg.id || uid(), dir: 'in', name: msg.name || '文件', size: msg.size || 0, mime: msg.mime || '',
+      status: 'queued', received: 0, speed: 0, relayToken: msg.token, from: msg.from || '',
+      folderArchive: !!msg.folderArchive, folderName: msg.folderName || '',
+      blob: null, pending: [], pendingBytes: 0, writeChain: Promise.resolve(), writable: null, blobUrl: null,
+    };
+    incoming.set(item.id, item);
+    addToList(item);
+    toast('对方通过服务器发来文件：' + item.name, '');
+  }
+
+  /* ================= 中转发送（直连打不通时的兜底） ================= */
+  let relayCountdown = null;
+
+  function stopRelayCountdown() {
+    if (relayCountdown) clearInterval(relayCountdown);
+    relayCountdown = null;
+    const btn = $('#btnRelayCancel');
+    if (btn) btn.classList.add('hidden');
+    const detail = $('#relayDetail');
+    if (detail && detail.dataset.base) detail.textContent = detail.dataset.base;
+  }
+
+  function startRelayCountdown() {
+    const detail = $('#relayDetail');
+    const btn = $('#btnRelayCancel');
+    if (!detail) return;
+    if (!detail.dataset.base) detail.dataset.base = detail.textContent;
+    if (btn) btn.classList.remove('hidden');
+
+    let left = 6;
+    const render = () => {
+      detail.textContent = detail.dataset.base + '　' + left + ' 秒后自动改用服务器中转…';
+    };
+    render();
+    stopTimerOnly();
+    relayCountdown = setInterval(() => {
+      left -= 1;
+      if (left <= 0) {
+        stopRelayCountdown();
+        enableRelay(true);
+        return;
+      }
+      render();
+    }, 1000);
+  }
+
+  function stopTimerOnly() {
+    if (relayCountdown) clearInterval(relayCountdown);
+    relayCountdown = null;
+  }
+
+  function showRelayBanner() {
+    const banner = $('#relayBanner');
+    if (!banner) return;
+    const stat = Object.entries(iceStats).map(([k, v]) => k + ' ' + v).join(' / ') || '无';
+    $('#relayDetail').textContent =
+      '可选候选：' + stat + '。公司/校园网常见原因是禁止设备互访。改用服务器中转后，文件会短暂存放在服务器上，对方取走或被下载后删除。';
+    $('#relayDetail').dataset.base = $('#relayDetail').textContent;
+    banner.classList.remove('hidden');
+    startRelayCountdown();
+  }
+
+  function enableRelay(announce) {
+    stopRelayCountdown();
+    state.relayMode = true;
+    const banner = $('#relayBanner');
+    if (banner) banner.classList.add('hidden');
+    $('#dropzone').classList.remove('disabled');
+    setPeerChip('服务器中转', 'warn');
+    setStatus('中转模式', 'warn');
+    if (announce) toast('已切换为服务器中转，拖文件即可发送', 'ok');
+    pumpQueue();
+  }
+
+  function uploadViaRelay(item) {
+    item.status = 'sending';
+    item.sent = 0;
+    item.speed = 0;
+    item._lastBytes = 0;
+    item._samples = 0;
+    item._t0 = performance.now();
+    renderRow(item);
+    startTicker();
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', sigUrl('/relay/upload'));
+    xhr.setRequestHeader('X-File-Name', encodeURIComponent(item.folderArchive ? item.name + '.zip' : item.name));
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) item.sent = e.loaded;
+    });
+    xhr.addEventListener('load', () => {
+      let data = null;
+      try { data = JSON.parse(xhr.responseText); } catch (_) {}
+      if (xhr.status === 200 && data && data.id) {
+        item.sent = item.size;
+        item.status = 'done';
+        item.elapsed = (performance.now() - item._t0) / 1000;
+        item.speed = 0;
+        sigSend({
+          t: 'signal',
+          data: { relay: { id: item.id, token: data.id, name: item.name, folderArchive: !!item.folderArchive, folderName: item.folderName || '', size: item.size, mime: item.mime, from: state.deviceLabel } },
+        });
+        toast('已通过服务器发出：' + item.name, 'ok');
+      } else {
+        item.status = 'error';
+        item.err = (data && data.error) || ('服务器返回 ' + xhr.status);
+      }
+      sending = null;
+      renderRow(item);
+      updateSummary();
+      pumpQueue();
+    });
+    xhr.addEventListener('error', () => {
+      item.status = 'error';
+      item.err = '上传失败，请检查网络';
+      sending = null;
+      renderRow(item);
+      updateSummary();
+      pumpQueue();
+    });
+    xhr.send(item.file);
+  }
+
+  /* ================= 接收端 ================= */
+  function onChunk(buffer) {
+    const item = activeIncoming;
+    if (!item) return;
+    const bytes = new Uint8Array(buffer);
+    item.received += bytes.byteLength;
+
+    // 回确认，发送端据此做流控
+    if (item.received - (item.lastAck || 0) >= ACK_EVERY) {
+      item.lastAck = item.received;
+      sendJSON({ t: 'ack', id: item.id, bytes: item.received });
+    }
+
+    // 先攒够一批再落盘：每片都 write 一次会把主线程占满（顺带拖慢 ack），
+    // 实测能把写盘调用从每 64KB 一次降到每 4MB 一次。
+    item.pending.push(bytes);
+    item.pendingBytes += bytes.byteLength;
+    if (item.writable) {
+      if (item.pendingBytes >= WRITE_BATCH) flushWritable(item);
+    } else if (item.pendingBytes >= 2 * 1024 * 1024) {
+      flushPending(item);
+    }
+  }
+
+  function flushWritable(item) {
+    if (!item.writable || !item.pending.length) return;
+    const batch = new Blob(item.pending);
+    item.pending = [];
+    item.pendingBytes = 0;
+    item.writeChain = item.writeChain.then(() => item.writable.write(batch)).catch((err) => {
+      if (item.status !== 'error') {
+        item.status = 'error';
+        item.err = '写入磁盘失败';
+        renderRow(item);
+        sendJSON({ t: 'cancel', id: item.id });
+      }
+    });
+  }
+
+  function flushPending(item) {
+    if (!item.pending.length) return;
+    const chunk = new Blob(item.pending);
+    item.pending = [];
+    item.pendingBytes = 0;
+    item.blob = item.blob ? new Blob([item.blob, chunk]) : chunk;
+  }
+
+  async function crc32(blob) {
+    let crc = 0xffffffff;
+    const table = crc32.table || (crc32.table = Array.from({ length: 256 }, (_, n) => {
+      let value = n;
+      for (let bit = 0; bit < 8; bit++) value = (value & 1) ? (0xedb88320 ^ (value >>> 1)) : (value >>> 1);
+      return value >>> 0;
+    }));
+    const reader = blob.stream().getReader();
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      for (let i = 0; i < value.length; i++) crc = table[(crc ^ value[i]) & 255] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  async function createZipBlob(files) {
+    const encoder = new TextEncoder();
+    const locals = [], centrals = [];
+    let offset = 0;
+    for (const file of files) {
+      const name = encoder.encode(file.path);
+      const size = file.blob.size;
+      if (size > 0xffffffff || offset + size > 0xffffffff || name.length > 0xffff) throw new Error('文件夹总大小超过 ZIP 格式上限');
+      const crc = await crc32(file.blob);
+      const local = new Uint8Array(30 + name.length);
+      const lv = new DataView(local.buffer);
+      lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, 0x0800, true);
+      lv.setUint16(12, 0x21, true);
+      lv.setUint32(14, crc, true); lv.setUint32(18, size, true); lv.setUint32(22, size, true);
+      lv.setUint16(26, name.length, true); local.set(name, 30);
+      locals.push(local, file.blob);
+
+      const central = new Uint8Array(46 + name.length);
+      const cv = new DataView(central.buffer);
+      cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+      cv.setUint16(8, 0x0800, true); cv.setUint32(16, crc, true);
+      cv.setUint16(14, 0x21, true);
+      cv.setUint32(20, size, true); cv.setUint32(24, size, true); cv.setUint16(28, name.length, true);
+      cv.setUint32(42, offset, true); central.set(name, 46);
+      centrals.push(central);
+      offset += local.length + size;
+    }
+    if (files.length > 0xffff || offset > 0xffffffff) throw new Error('文件夹总大小超过 ZIP 格式上限');
+    const centralSize = centrals.reduce((sum, part) => sum + part.length, 0);
+    const end = new Uint8Array(22);
+    const ev = new DataView(end.buffer);
+    ev.setUint32(0, 0x06054b50, true); ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true);
+    ev.setUint32(12, centralSize, true); ev.setUint32(16, offset, true);
+    return new Blob([...locals, ...centrals, end], { type: 'application/zip' });
+  }
+
+  function safePathPart(value) {
+    const part = String(value || '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim();
+    return part === '.' || part === '..' ? '_' : part;
+  }
+
+  async function extractFolderZip(zipBlob, item, destination) {
+    const rootName = safePathPart(item.folderName) || 'folder';
+    const root = await destination.getDirectoryHandle(rootName, { create: true });
+    let offset = 0;
+    while (offset + 30 <= zipBlob.size) {
+      const header = new DataView(await zipBlob.slice(offset, offset + 30).arrayBuffer());
+      if (header.getUint32(0, true) !== 0x04034b50) break;
+      const method = header.getUint16(8, true);
+      const compressedSize = header.getUint32(18, true);
+      const nameLength = header.getUint16(26, true);
+      const extraLength = header.getUint16(28, true);
+      if (method !== 0) throw new Error('不支持的文件夹压缩格式');
+      const nameStart = offset + 30;
+      const entryName = new TextDecoder().decode(await zipBlob.slice(nameStart, nameStart + nameLength).arrayBuffer());
+      const parts = entryName.split('/').filter((part) => part && part !== '.' && part !== '..').map(safePathPart).filter(Boolean);
+      const dataStart = nameStart + nameLength + extraLength;
+      const dataEnd = dataStart + compressedSize;
+      if (dataEnd > zipBlob.size) throw new Error('文件夹压缩包数据不完整');
+      if (parts.length) {
+        parts.shift(); // ZIP 内含顶层文件夹名，目标目录已创建
+        if (parts.length) {
+          const fileName = parts.pop();
+          let dir = root;
+          for (const part of parts) dir = await dir.getDirectoryHandle(part, { create: true });
+          const fileHandle = await dir.getFileHandle(fileName, { create: true });
+          const writable = await fileHandle.createWritable();
+          await writable.write(zipBlob.slice(dataStart, dataEnd));
+          await writable.close();
+        }
+      }
+      offset = dataEnd;
+    }
+  }
+
+  async function acceptIncoming(item) {
+    if (activeIncoming && activeIncoming !== item) {
+      toast('请等当前文件接收完成后再接收下一个', '');
+      return;
+    }
+    // 必须在用户点击的同一个任务里调用选择器，否则会被浏览器拒绝
+    if (item.folderArchive && window.showDirectoryPicker) {
+      try {
+        item.destinationDirectory = await window.showDirectoryPicker({ mode: 'readwrite' });
+      } catch (err) {
+        item.destinationDirectory = null;
+        toast('浏览器无法写入所选目录，将改为接收 ZIP 压缩包', '');
+      }
+    } else if (!item.folderArchive && window.showSaveFilePicker) {
+      let handle = null;
+      try {
+        handle = await window.showSaveFilePicker({ suggestedName: item.name });
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // 用户自己取消，保持待接收
+        handle = null;
+      }
+      if (handle) {
+        try {
+          item.writable = await handle.createWritable();
+        } catch (_) {
+          item.writable = null;
+        }
+      }
+    }
+
+    activeIncoming = item;
+    item.t0 = performance.now();
+    item.status = 'receiving';
+    item.received = 0;
+    item._lastBytes = 0;
+    item._samples = 0;
+    item.speed = 0;
+    renderRow(item);
+    startTicker();
+    sendJSON({ t: 'accept', id: item.id });
+  }
+
+  async function finishIncoming(item) {
+    try {
+      if (item.writable) {
+        flushWritable(item);
+        await item.writeChain;
+        await item.writable.close();
+        item.writable = null;
+      } else {
+        flushPending(item);
+        const blob = item.blob || new Blob([]);
+        item.blob = null;
+        if (item.folderArchive && item.destinationDirectory) {
+          try {
+            await extractFolderZip(blob, item, item.destinationDirectory);
+          } catch (err) {
+            item.blobUrl = URL.createObjectURL(blob);
+            downloadBlob(item.blobUrl, item.folderName + '.zip');
+            toast('无法写入目标目录，已改为下载 ZIP 压缩包', '');
+          }
+        } else if (item.folderArchive) {
+          item.blobUrl = URL.createObjectURL(blob);
+          downloadBlob(item.blobUrl, item.folderName + '.zip');
+        } else {
+          item.blobUrl = URL.createObjectURL(blob);
+          downloadBlob(item.blobUrl, item.name);
+        }
+      }
+      item.status = 'done';
+      if (item.t0) item.elapsed = (performance.now() - item.t0) / 1000;
+    } catch (err) {
+      item.status = 'error';
+      item.err = err.message || '保存失败';
+    }
+    item.speed = 0;
+    if (activeIncoming === item) activeIncoming = null;
+    renderRow(item);
+    updateSummary();
+    if (item.status === 'done') toast('已接收：' + item.name, 'ok');
+  }
+
+  function downloadBlob(url, filename) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
+  /* ================= 行内操作 ================= */
+  async function onRowAction(item, act) {
+    if (act === 'accept') {
+      acceptIncoming(item);
+    } else if (act === 'reject') {
+      item.status = 'rejected';
+      renderRow(item);
+      sendJSON({ t: 'reject', id: item.id });
+    } else if (act === 'abort' || act === 'cancel') {
+      if (item.dir === 'out') {
+        const wasWaiting = item.status === 'waiting';
+        item.aborted = true;
+        signalAck();
+        item.status = 'canceled';
+        item.selfCancel = true;
+        if (wasWaiting && sending === item) sending = null;
+        sendJSON({ t: 'cancel', id: item.id });
+        const idx = outQueue.indexOf(item);
+        if (idx >= 0) outQueue.splice(idx, 1);
+        if (wasWaiting) pumpQueue();
+      } else {
+        item.selfCancel = true;
+        item.status = 'canceled';
+        if (item.writable) { try { item.writable.abort(); } catch (_) {} }
+        item.blob = null;
+        item.pending = [];
+        item.pendingBytes = 0;
+        if (activeIncoming === item) activeIncoming = null;
+        sendJSON({ t: 'cancel', id: item.id });
+      }
+      renderRow(item);
+      updateSummary();
+    } else if (act === 'remove') {
+      const idx = outQueue.indexOf(item);
+      if (idx >= 0) outQueue.splice(idx, 1);
+      outgoing.delete(item.id);
+      if (item.row) item.row.el.remove();
+      rowById.delete(item.id);
+      updateSummary();
+    } else if (act === 'download') {
+      const a = document.createElement('a');
+      a.href = sigUrl('/relay/file?id=' + encodeURIComponent(item.relayToken));
+      a.download = item.folderArchive ? item.folderName + '.zip' : item.name;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      item.status = 'done';
+      renderRow(item);
+      updateSummary();
+      toast(item.folderArchive ? '开始下载文件夹压缩包：' + item.folderName : '开始下载：' + item.name, 'ok');
+    } else if (act === 'ignore') {
+      item.status = 'canceled';
+      item.selfCancel = true;
+      renderRow(item);
+      updateSummary();
+    } else if (act === 'save') {
+      if (item.blobUrl) {
+        const a = document.createElement('a');
+        a.href = item.blobUrl;
+        a.download = item.name;
+        a.click();
+      }
+    }
+  }
+
+  /* ================= 文本消息 ================= */
+  function addBubble(text, who) {
+    if (!text) return;
+    const feed = $('#msgFeed');
+    const el = document.createElement('div');
+    el.className = 'bubble ' + who;
+    el.textContent = text;
+    feed.appendChild(el);
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  function sendText() {
+    const input = $('#msgInput');
+    const body = input.value.trim();
+    if (!body) return;
+    if (!sendJSON({ t: 'text', body })) {
+      toast('还没连上对方', 'bad');
+      return;
+    }
+    addBubble(body, 'me');
+    input.value = '';
+  }
+
+  /* ================= 离开 / 断线 ================= */
+  function onPeerLeft() {
+    state.peerPresent = false;
+    resetPeer();
+    setPeerChip('对方已离开，等待重新加入…', 'warn');
+    setStatus('等待对方', 'warn');
+    updatePeerReadyUI();
+    // 正在传的都标记为中断
+    for (const item of rowById.values()) {
+      if (['waiting', 'sending', 'receiving'].includes(item.status)) {
+        item.status = 'error';
+        item.err = '对方已离开';
+        renderRow(item);
+      }
+    }
+    toast('对方已离开房间', '');
+    updateSharePanel();
+  }
+
+  function leaveRoom() {
+    sigSend({ t: 'leave' });
+    stopResume();
+    stopRelayCountdown();
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    state.token = null;
+    resetPeer();
+    state.code = null;
+    state.peerPresent = false;
+    state.hadPeer = false;
+    state.relayMode = false;
+    outQueue.length = 0;
+    $('#list').innerHTML = '<div class="empty" id="listEmpty">还没有文件。连接建立后拖入文件就能开始。</div>';
+    rowById.clear();
+    outgoing.clear();
+    incoming.clear();
+    $('#msgFeed').innerHTML = '';
+    backToLobby();
+  }
+
+  /* ================= 事件绑定 ================= */
+  $('#btnCreate').addEventListener('click', async () => {
+    const btn = $('#btnCreate');
+    btn.disabled = true;
+    btn.textContent = '正在创建…';
+    try {
+      await openSignal();
+      if (!sigSend({ t: 'create' })) throw new Error('信令通道未就绪');
+    } catch (err) {
+      toast('连不上信令服务（' + err.message + '）。请确认链接里带 ?sharecode= 参数，或刷新页面重试。', 'bad');
+      btn.disabled = false;
+      btn.textContent = '生成房间码';
+    }
+  });
+
+  async function joinRoom() {
+    const code = $('#codeInput').value.trim().toUpperCase();
+    $('#joinError').textContent = '';
+    if (code.length !== 6) {
+      $('#joinError').textContent = '房间码是 6 位哦';
+      return;
+    }
+    const btn = $('#btnJoin');
+    btn.disabled = true;
+    btn.textContent = '连接中…';
+    try {
+      await openSignal();
+      sigSend({ t: 'join', code });
+    } catch (err) {
+      $('#joinError').textContent = '连不上信令服务：' + err.message;
+      btn.disabled = false;
+      btn.textContent = '加入';
+    }
+  }
+
+  $('#btnJoin').addEventListener('click', joinRoom);
+  $('#codeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom(); });
+  $('#codeInput').addEventListener('input', (e) => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  });
+
+  /* ---- 分享面板：地址 + 房间码 ---- */
+  async function loadInfo() {
+    try {
+      const info = await fetch('/api/info').then((r) => r.json());
+      state.info = info;
+      updateShareUrl();
+    } catch (_) {}
+  }
+
+  function pageBase() {
+    const host = location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '0.0.0.0';
+    // 用 localhost 打开时，对方访问不到这个地址，换成服务端上报的局域网 IP
+    if (isLocal && state.info && Array.isArray(state.info.lan) && state.info.lan.length) {
+      return 'http://' + state.info.lan[0] + ':' + state.info.port;
+    }
+    return location.origin;
+  }
+
+  function updateShareUrl() {
+    const base = pageBase();
+    state.shareBase = base;
+    const el = $('#shareUrl');
+    if (el) el.textContent = base + location.pathname + (location.search || '');
+  }
+
+  function updateSharePanel() {
+    const ready = (state.dc && state.dc.readyState === 'open') || state.memberCount > 1;
+    $('#sharePanel').classList.toggle('hidden', !!ready);
+    if (!ready) {
+      $('#shareTitle').textContent = state.peerPresent
+        ? '正在建立直连…'
+        : (state.hadPeer ? '对方已离开，等待重新加入' : '等待另一台电脑加入');
+    }
+  }
+
+  function inviteUrl() {
+    const base = state.shareBase || location.origin;
+    return base + (location.pathname === '/' ? '/' : location.pathname) + (location.search || '') + '#' + (state.code || '');
+  }
+
+  async function copyCode() {
+    const ok = await copyText(state.code || '');
+    toast(ok ? '房间码已复制：' + state.code : '复制失败，请手动选中复制', ok ? 'ok' : 'bad');
+  }
+
+  async function copyInvite() {
+    const ok = await copyText(inviteUrl());
+    toast(ok ? '邀请链接已复制，发给另一台电脑打开即可' : '复制失败', ok ? 'ok' : 'bad');
+  }
+
+  $('#btnCopyCode2').addEventListener('click', copyCode);
+  $('#btnCopyLink2').addEventListener('click', copyInvite);
+  $('#btnCopySm').addEventListener('click', copyInvite);
+  $('#btnCopyUrl').addEventListener('click', async () => {
+    const text = $('#shareUrl').textContent;
+    const ok = await copyText(text);
+    toast(ok ? '访问地址已复制' : '复制失败', ok ? 'ok' : 'bad');
+  });
+
+  $('#btnRelay').addEventListener('click', () => enableRelay(true));
+  $('#btnRelayCancel').addEventListener('click', () => {
+    stopRelayCountdown();
+    $('#relayDetail').textContent = $('#relayDetail').dataset.base || '';
+    toast('已取消自动切换，你可以随时手动点「改用服务器中转」', '');
+  });
+  $('#btnLeave').addEventListener('click', leaveRoom);
+
+  const dz = $('#dropzone');
+  dz.addEventListener('click', (e) => {
+    if (e.target.closest('#btnPick')) return;
+    if (dz.classList.contains('disabled')) {
+      toast('还没连上对方', 'bad');
+      return;
+    }
+    $('#fileInput').click();
+  });
+  $('#btnPick').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (dz.classList.contains('disabled')) { toast('还没连上对方', 'bad'); return; }
+    $('#fileInput').click();
+  });
+  $('#fileInput').addEventListener('change', (e) => {
+    enqueueFiles(e.target.files);
+    e.target.value = '';
+  });
+  $('#btnPickFolder').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (dz.classList.contains('disabled')) { toast('还没连上对方', 'bad'); return; }
+    $('#folderInput').click();
+  });
+  $('#folderInput').addEventListener('change', (e) => {
+    enqueueFiles(e.target.files);
+    e.target.value = '';
+  });
+
+  function readDroppedEntry(entry, base = '') {
+    if (entry.isFile) {
+      return new Promise((resolve) => entry.file((file) => {
+        if (base) {
+          try { Object.defineProperty(file, 'relativePath', { value: base + file.name }); } catch (_) {}
+        }
+        resolve([file]);
+      }, () => resolve([])));
+    }
+    if (!entry.isDirectory) return Promise.resolve([]);
+    const reader = entry.createReader();
+    const folderPath = base + entry.name + '/';
+    return new Promise((resolve) => {
+      const files = [];
+      const readBatch = () => reader.readEntries(async (children) => {
+        if (!children.length) { resolve(files); return; }
+        const nested = await Promise.all(children.map((child) => readDroppedEntry(child, folderPath)));
+        files.push(...nested.flat());
+        readBatch();
+      }, () => resolve(files));
+      readBatch();
+    });
+  }
+
+  ['dragenter', 'dragover'].forEach((ev) => {
+    dz.addEventListener(ev, (e) => {
+      e.preventDefault();
+      if (!dz.classList.contains('disabled')) dz.classList.add('drag');
+    });
+  });
+  ['dragleave', 'drop'].forEach((ev) => {
+    dz.addEventListener(ev, (e) => {
+      e.preventDefault();
+      dz.classList.remove('drag');
+    });
+  });
+  dz.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (dz.classList.contains('disabled')) { toast('还没连上对方', 'bad'); return; }
+    const items = e.dataTransfer.items;
+    if (items && items.length) {
+      const entries = Array.from(items).map((item) => item.webkitGetAsEntry && item.webkitGetAsEntry()).filter(Boolean);
+      if (entries.length) {
+        Promise.all(entries.map((entry) => readDroppedEntry(entry))).then((groups) => enqueueFiles(groups.flat()));
+        return;
+      }
+    }
+    enqueueFiles(e.dataTransfer.files);
+  });
+
+  // 拖到窗口其它地方不要跳转
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
+
+  $('#btnSendMsg').addEventListener('click', sendText);
+  $('#msgInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendText(); });
+
+  window.addEventListener('beforeunload', (e) => {
+    const busy = [...rowById.values()].some((i) => i.status === 'sending' || i.status === 'receiving');
+    if (busy) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
+  /* ================= 启动 ================= */
+  (function boot() {
+    state.deviceLabel = deviceLabel();
+    updateBuildTag();
+    setupSaveHint();
+    loadInfo();
+    if (new URLSearchParams(location.search).get('relay') === '1') {
+      state.relayMode = true;
+    }
+    if (new URLSearchParams(location.search).get('debug') === 'fail') {
+      setTimeout(() => {
+        if (state.code && !(state.dc && state.dc.readyState === 'open')) showRelayBanner();
+      }, 2000);
+    }
+    // 支持邀请链接 #ABC123
+    const hash = (location.hash || '').replace('#', '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (hash.length === 6) {
+      $('#codeInput').value = hash;
+      setTimeout(() => { if (!state.code) joinRoom(); }, 200);
+    }
+    if (!window.showSaveFilePicker) {
+      console.info('[快传] 当前非 HTTPS/localhost 环境，接收时走内存下载模式');
+    }
+  })();
+})();
+</script>
+</body>
+</html>
